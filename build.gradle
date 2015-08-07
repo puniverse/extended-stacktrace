@@ -15,10 +15,8 @@ status              = "integration"
 description         = "Stack Traces with Extended Information"
 ext.url             = "http://puniverse.github.com/extended-stacktrace"
 ext.vendor          = "Parallel Universe Software Co."
-ext.licenseName1    = "The GNU Lesser General Public License, version 3"
-ext.licenseUrl1     = "http://www.gnu.org/licenses/lgpl-3.0.txt"
-ext.licenseName2    = "Eclipse Public License - v 1.0"
-ext.licenseUrl2     = "http://www.eclipse.org/legal/epl-v10.html"
+ext.licenseName     = "GNU General Public License, version 2, with the Classpath Exception"
+ext.licenseUrl      = "http://openjdk.java.net/legal/gplv2+ce.html"
 ext.scmUrl          = "https://github.com/puniverse/extended-stacktrace"
 ext.scmConnection   = "https://github.com/puniverse/extended-stacktrace.git"
 
@@ -120,13 +118,8 @@ uploadArchives {
                 }
                 licenses {
                     license {
-                        name project.licenseName1
-                        url project.licenseUrl1
-                        distribution 'repo'
-                    }
-                    license {
-                        name project.licenseName2
-                        url project.licenseUrl2
+                        name project.licenseName
+                        url project.licenseUrl
                         distribution 'repo'
                     }
                 }

@@ -41,12 +41,8 @@ This project is free software free software published under the following licens
 ```
 Copyright (c) 2015, Parallel Universe Software Co. All rights reserved.
 
-This program and the accompanying materials are dual-licensed under
-either the terms of the Eclipse Public License v1.0 as published by
-the Eclipse Foundation
-
-  or (per the licensee's choosing)
-
-under the terms of the GNU Lesser General Public License version 3.0
-as published by the Free Software Foundation.
+This program and the accompanying materials are licensed under
+GNU General Public License, version 2, with the Classpath Exception (same as OpenJDK)
+ 
+http://openjdk.java.net/legal/gplv2+ce.html
 ```

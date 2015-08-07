@@ -1,23 +1,24 @@
 /*
- * Copyright (c) 2013-2015, Parallel Universe Software Co. All rights reserved.
+ * Copyright (c) 2015, Parallel Universe Software Co. All rights reserved.
  * 
- * This program and the accompanying materials are dual-licensed under
- * either the terms of the Eclipse Public License v1.0 as published by
- * the Eclipse Foundation
- *  
- *   or (per the licensee's choosing)
- *  
- * under the terms of the GNU Lesser General Public License version 3.0
- * as published by the Free Software Foundation.
+ * This program and the accompanying materials are licensed under
+ * GNU General Public License, version 2, with the Classpath Exception
+ * 
+ * http://openjdk.java.net/legal/gplv2+ce.html
  */
 package co.paralleluniverse.xst;
 
+import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 //import java.lang.reflect.Executable;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -29,7 +30,7 @@ import org.objectweb.asm.Type;
 /**
  * Represents a captured stack trace which contains more information than that returned by {@link Throwable#getStackTrace()}.
  * The extended information is captured on a best-effort basis, and depends on the JVM used.
- * 
+ *
  * @author pron
  */
 public class ExtendedStackTrace implements Iterable<ExtendedStackTraceElement> {
@@ -38,6 +39,8 @@ public class ExtendedStackTrace implements Iterable<ExtendedStackTraceElement> {
      * @param t
      */
     public static ExtendedStackTrace of(Throwable t) {
+        if (t == null)
+            return null;
         try {
             return new ExtendedStackTraceHotSpot(t);
         } catch (Throwable e) {
@@ -50,7 +53,7 @@ public class ExtendedStackTrace implements Iterable<ExtendedStackTraceElement> {
      */
     public static ExtendedStackTrace here() {
         try {
-            return new ExtendedStackTraceHotSpot(new Throwable());
+            return new ExtendedStackTraceHotSpot(new Exception("Stack trace"));
         } catch (Throwable e) {
             return new ExtendedStackTraceClassContext();
         }
@@ -153,7 +156,7 @@ public class ExtendedStackTrace implements Iterable<ExtendedStackTraceElement> {
     protected static final String getName(Member m) {
         if (m instanceof Constructor)
             return "<init>";
-        return ((Method)m).getName();
+        return ((Method) m).getName();
     }
 
     protected static final String getDescriptor(Member m) {
@@ -217,4 +220,144 @@ public class ExtendedStackTrace implements Iterable<ExtendedStackTraceElement> {
             return clazz;
         }
     }
+
+    //<editor-fold defaultstate="collapsed" desc="Printing">
+    /////////// Printing ///////////////////////////////////
+    /*
+     * Copyright for the printing section, which is based on OpenJDK code taken from java/lang/Throwable.java:
+     *
+     * Copyright (c) 2015, Parallel Universe Software Co. All rights reserved.
+     * Copyright (c) 1994, 2011, Oracle and/or its affiliates. All rights reserved.
+     */
+    
+    /**
+     * Prints this stack trace to {@link System#err}.
+     */
+    public void printStackTrace() {
+        printStackTrace(System.err);
+    }
+
+    /**
+     * Prints this stack trace to the given print stream.
+     */
+    public void printStackTrace(PrintStream s) {
+        printStackTrace(new WrappedPrintStream(s));
+    }
+
+    /**
+     * Prints this stack trace to the given print writer.
+     */
+    public void printStackTrace(PrintWriter s) {
+        printStackTrace(new WrappedPrintWriter(s));
+    }
+
+    private void printStackTrace(PrintStreamOrWriter s) {
+        // Guard against malicious overrides of Throwable.equals by using a Set with identity equality semantics.
+        Set<Throwable> dejaVu = Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>());
+        dejaVu.add(t);
+
+        synchronized (s.lock()) {
+            // Print our stack trace
+            s.println(this);
+            ExtendedStackTraceElement[] trace = get();
+            for (ExtendedStackTraceElement traceElement : trace)
+                s.println("\tat " + traceElement);
+
+            // Print suppressed exceptions, if any
+            for (Throwable se : t.getSuppressed())
+                ExtendedStackTrace.of(se).printEnclosedStackTrace(s, trace, SUPPRESSED_CAPTION, "\t", dejaVu);
+
+            // Print cause, if any
+            ExtendedStackTrace ourCause = ExtendedStackTrace.of(t.getCause());
+            if (ourCause != null)
+                ourCause.printEnclosedStackTrace(s, trace, CAUSE_CAPTION, "", dejaVu);
+        }
+    }
+
+    /**
+     * Print our stack trace as an enclosed exception for the specified stack trace.
+     */
+    private void printEnclosedStackTrace(PrintStreamOrWriter s,
+                                         ExtendedStackTraceElement[] enclosingTrace,
+                                         String caption,
+                                         String prefix,
+                                         Set<Throwable> dejaVu) {
+        assert Thread.holdsLock(s.lock());
+        if (dejaVu.contains(t)) {
+            s.println("\t[CIRCULAR REFERENCE:" + this + "]");
+        } else {
+            dejaVu.add(t);
+
+            // Compute number of frames in common between this and enclosing trace
+            ExtendedStackTraceElement[] trace = get();
+            int m = trace.length - 1;
+            int n = enclosingTrace.length - 1;
+            while (m >= 0 && n >= 0 && trace[m].equals(enclosingTrace[n])) {
+                m--;
+                n--;
+            }
+            int framesInCommon = trace.length - 1 - m;
+
+            // Print our stack trace
+            s.println(prefix + caption + this);
+            for (int i = 0; i <= m; i++)
+                s.println(prefix + "\tat " + trace[i]);
+            if (framesInCommon != 0)
+                s.println(prefix + "\t... " + framesInCommon + " more");
+
+            // Print suppressed exceptions, if any
+            for (Throwable se : t.getSuppressed())
+                ExtendedStackTrace.of(se).printEnclosedStackTrace(s, trace, SUPPRESSED_CAPTION, prefix + "\t", dejaVu);
+
+            // Print cause, if any
+            ExtendedStackTrace ourCause = ExtendedStackTrace.of(t.getCause());
+            if (ourCause != null)
+                ourCause.printEnclosedStackTrace(s, trace, CAUSE_CAPTION, prefix, dejaVu);
+        }
+    }
+
+    private static final String CAUSE_CAPTION = "Caused by: ";
+    private static final String SUPPRESSED_CAPTION = "Suppressed: ";
+
+    /**
+     * Wrapper class for PrintStream and PrintWriter to enable a single implementation of printStackTrace.
+     */
+    private abstract static class PrintStreamOrWriter {
+        abstract Object lock();
+
+        abstract void println(Object o);
+    }
+
+    private static class WrappedPrintStream extends PrintStreamOrWriter {
+        private final PrintStream printStream;
+
+        WrappedPrintStream(PrintStream printStream) {
+            this.printStream = printStream;
+        }
+
+        Object lock() {
+            return printStream;
+        }
+
+        void println(Object o) {
+            printStream.println(o);
+        }
+    }
+
+    private static class WrappedPrintWriter extends PrintStreamOrWriter {
+        private final PrintWriter printWriter;
+
+        WrappedPrintWriter(PrintWriter printWriter) {
+            this.printWriter = printWriter;
+        }
+
+        Object lock() {
+            return printWriter;
+        }
+
+        void println(Object o) {
+            printWriter.println(o);
+        }
+    }
+    //</editor-fold>
 }
