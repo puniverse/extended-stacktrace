@@ -273,51 +273,35 @@ public class ExtendedStackTrace implements Iterable<ExtendedStackTraceElement> {
     }
 
     private void printStackTrace(PrintStreamOrWriter s) {
-        // Guard against malicious overrides of Throwable.equals by using a Set with identity equality semantics.
-        Set<Throwable> dejaVu = Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>());
-        dejaVu.add(t);
-
         synchronized (s.lock()) {
-            // Print our stack trace
-            s.println(this);
-            ExtendedStackTraceElement[] trace = get();
-            for (ExtendedStackTraceElement traceElement : trace)
-                s.println("\tat " + traceElement);
-
-            // Print suppressed exceptions, if any
-            for (Throwable se : t.getSuppressed())
-                ExtendedStackTrace.of(se).printEnclosedStackTrace(s, trace, SUPPRESSED_CAPTION, "\t", dejaVu);
-
-            // Print cause, if any
-            ExtendedStackTrace ourCause = ExtendedStackTrace.of(t.getCause());
-            if (ourCause != null)
-                ourCause.printEnclosedStackTrace(s, trace, CAUSE_CAPTION, "", dejaVu);
+            // Guard against malicious overrides of Throwable.equals by using a Set with identity equality semantics.
+            printStackTrace(s, null, "", "", Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>()));
         }
     }
 
-    /**
-     * Print our stack trace as an enclosed exception for the specified stack trace.
-     */
-    private void printEnclosedStackTrace(PrintStreamOrWriter s,
-                                         ExtendedStackTraceElement[] enclosingTrace,
-                                         String caption,
-                                         String prefix,
-                                         Set<Throwable> dejaVu) {
+    private void printStackTrace(PrintStreamOrWriter s,
+                                 ExtendedStackTraceElement[] enclosingTrace,
+                                 String caption,
+                                 String prefix,
+                                 Set<Throwable> dejaVu) {
         assert Thread.holdsLock(s.lock());
         if (dejaVu.contains(t)) {
             s.println("\t[CIRCULAR REFERENCE:" + this + "]");
         } else {
             dejaVu.add(t);
 
-            // Compute number of frames in common between this and enclosing trace
-            ExtendedStackTraceElement[] trace = get();
+            final ExtendedStackTraceElement[] trace = get();
             int m = trace.length - 1;
-            int n = enclosingTrace.length - 1;
-            while (m >= 0 && n >= 0 && trace[m].equals(enclosingTrace[n])) {
-                m--;
-                n--;
+
+            // Compute number of frames in common between this and enclosing trace
+            if (enclosingTrace != null) {
+                int n = enclosingTrace.length - 1;
+                while (m >= 0 && n >= 0 && trace[m].equals(enclosingTrace[n])) {
+                    m--;
+                    n--;
+                }
             }
-            int framesInCommon = trace.length - 1 - m;
+            final int framesInCommon = trace.length - 1 - m;
 
             // Print our stack trace
             s.println(prefix + caption + this);
@@ -328,12 +312,12 @@ public class ExtendedStackTrace implements Iterable<ExtendedStackTraceElement> {
 
             // Print suppressed exceptions, if any
             for (Throwable se : t.getSuppressed())
-                ExtendedStackTrace.of(se).printEnclosedStackTrace(s, trace, SUPPRESSED_CAPTION, prefix + "\t", dejaVu);
+                ExtendedStackTrace.of(se).printStackTrace(s, trace, SUPPRESSED_CAPTION, prefix + "\t", dejaVu);
 
             // Print cause, if any
-            ExtendedStackTrace ourCause = ExtendedStackTrace.of(t.getCause());
+            final ExtendedStackTrace ourCause = ExtendedStackTrace.of(t.getCause());
             if (ourCause != null)
-                ourCause.printEnclosedStackTrace(s, trace, CAUSE_CAPTION, prefix, dejaVu);
+                ourCause.printStackTrace(s, trace, CAUSE_CAPTION, prefix, dejaVu);
         }
     }
 
