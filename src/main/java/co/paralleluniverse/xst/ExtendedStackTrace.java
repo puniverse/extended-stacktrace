@@ -291,14 +291,14 @@ public class ExtendedStackTrace implements Iterable<ExtendedStackTraceElement> {
             dejaVu.add(t);
 
             final ExtendedStackTraceElement[] trace = get();
-            final int m = countUniqueFrames(trace, enclosingTrace);
+            final int unique = countUniqueFrames(trace, enclosingTrace);
 
             // Print our stack trace
             s.println(prefix + caption + this);
-            for (int i = 0; i <= m; i++)
+            for (int i = 0; i < unique; i++)
                 s.println(prefix + "\tat " + trace[i]);
             
-            final int framesInCommon = trace.length - 1 - m;
+            final int framesInCommon = trace.length - unique;
             if (framesInCommon != 0)
                 s.println(prefix + "\t... " + framesInCommon + " more");
 
@@ -322,7 +322,7 @@ public class ExtendedStackTrace implements Iterable<ExtendedStackTraceElement> {
                 n--;
             }
         }
-        return m;
+        return m + 1;
     }
 
     private static final String CAUSE_CAPTION = "Caused by: ";
