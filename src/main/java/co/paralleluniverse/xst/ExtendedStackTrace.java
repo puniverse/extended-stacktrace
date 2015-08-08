@@ -291,22 +291,14 @@ public class ExtendedStackTrace implements Iterable<ExtendedStackTraceElement> {
             dejaVu.add(t);
 
             final ExtendedStackTraceElement[] trace = get();
-            int m = trace.length - 1;
-
-            // Compute number of frames in common between this and enclosing trace
-            if (enclosingTrace != null) {
-                int n = enclosingTrace.length - 1;
-                while (m >= 0 && n >= 0 && trace[m].equals(enclosingTrace[n])) {
-                    m--;
-                    n--;
-                }
-            }
-            final int framesInCommon = trace.length - 1 - m;
+            final int m = countUniqueFrames(trace, enclosingTrace);
 
             // Print our stack trace
             s.println(prefix + caption + this);
             for (int i = 0; i <= m; i++)
                 s.println(prefix + "\tat " + trace[i]);
+            
+            final int framesInCommon = trace.length - 1 - m;
             if (framesInCommon != 0)
                 s.println(prefix + "\t... " + framesInCommon + " more");
 
@@ -319,6 +311,18 @@ public class ExtendedStackTrace implements Iterable<ExtendedStackTraceElement> {
             if (ourCause != null)
                 ourCause.printStackTrace(s, trace, CAUSE_CAPTION, prefix, dejaVu);
         }
+    }
+
+    private static int countUniqueFrames(ExtendedStackTraceElement[] trace, ExtendedStackTraceElement[] enclosingTrace) {
+        int m = trace.length - 1;
+        if (enclosingTrace != null) {
+            int n = enclosingTrace.length - 1;
+            while (m >= 0 && n >= 0 && trace[m].equals(enclosingTrace[n])) {
+                m--;
+                n--;
+            }
+        }
+        return m;
     }
 
     private static final String CAUSE_CAPTION = "Caused by: ";
