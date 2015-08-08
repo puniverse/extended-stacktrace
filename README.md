@@ -29,7 +29,7 @@ Please consult the [Javadocs](http://docs.paralleluniverse.co/extended-stacktrac
 
 ## Details
 
-On the HotSpot JVM (OpenJDK/Oracle JDK) for Java 8, the extended information is always available, and obtaining it is as efficient as a plain `Throwable.getStackTrace()`.
+On the HotSpot JVM (OpenJDK/Oracle JDK) for Java 8, the extended information is always available (via some deep hacking), and obtaining it is as efficient as a plain `Throwable.getStackTrace()`.
 
 On other JVMs/Java versions the extended information may be incomplete. There are (much) better chances for obtaining extended information when capturing the stack with 
 `ExtendedStackTrace.here()` than when extracting extended information from a `Throwable` with `ExtendedStackTrace.of(Throwable)`. Also, getting the method object carries a significant cost.
